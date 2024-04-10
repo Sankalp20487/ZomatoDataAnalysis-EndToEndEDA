@@ -1,0 +1,460 @@
+---
+title: "Final Project Milestone 1"
+author: "Sankalp Biswal"
+date: "2023-11-15"
+output: html_document
+---
+# Introduction
+## About the dataset-
+
+* This dataset provides a comprehensive view of the restaurant scene in the 13 metropolitan areas of India( 900 restaurants). This dataset has **127,657** observations and **12** attirbutes namely - 
+
+1. Restaurant Name: chr The name of the restaurant.
+2. Dining Rating:   num The rating given by customers for the dining experience at the restaurant.
+3. Delivery Rating: num The rating given by customers for the delivery service provided by the restaurant.
+4. Dining Votes:    int The number of votes or reviews received for the dining experience.
+5. Delivery Votes:  int The number of votes or reviews received for the delivery service.
+6. Cuisine:         chr The type of cuisine or culinary style offered by the restaurant.
+7. Place:           chr The location of the restaurant
+8. City Name:       chr The name of the metropolitan area or city where the restaurant is located. The dataset includes the following cities: Hyderabad, Kolkata,Lucknow, Pune, Chennai, Bengaluru, Mumbai, Raipur, Jaipur, Ahmedabad, Kochi, Goa, and New Delhi.
+9. Item Name:       chr The name of a specific dish or item offered by the restaurant.
+10. Best Seller:     chr Indicates whether the item is a best-selling dish or not.
+11. Votes:           int The number of votes or reviews received for the specific item.
+12. Prices:          num The prices associated with each item offered by the restaurant.
+
+* **Source** - https://www.kaggle.com/datasets/narsingraogoud/zomato-restaurants-dataset-for-metropolitan-areas/data
+
+
+# Data Analysis
+
+# 1. Importing Libraries
+
+```{r}
+library(pacman)
+library(ggplot2)
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(gmodels)
+library(plotly)
+library(reshape2)
+library(dplyr)
+library(purrr)
+library(knitr)
+library(kableExtra)
+library(mice)
+
+```
+# 2. Importing dataset
+```{r}
+dataset <- read.csv("zomato_dataset.csv")
+```
+
+```{r}
+str(dataset)
+```
+# 3. Data cleaning
+
+* Standardizing variable names
+
+```{r}
+dataset <- clean_names(dataset)
+summary(dataset)
+```
+* Applying **Predictive mean matching** using `mice()` to treat **NA** in **dining_rating** and **dining_votes**
+* Predictive mean matching is a statistical imputation technique used in data analysis and missing data handling.
+
+```{r}
+impute_data <- dataset
+
+# Assuming "Dining.Rating" is the column to be imputed
+vars_to_impute <- c("dining_rating","delivery_rating")
+
+impute_mice <- mice(impute_data[vars_to_impute], method = "pmm", m = 5)
+
+imputed_data <- complete(impute_mice)
+
+# Merge imputed data back into the original dataset
+dataset <- merge(dataset, imputed_data, by = "row.names", all.x = TRUE)
+
+# Remove the duplicated row.names column
+dataset <- dataset[, -1]
+```
+
+```{r}
+summary(dataset)
+```
+* Now, removing the old columns containing dining_rating & delivery_rating
+
+```{r}
+old_columns <- c("dining_rating.x", "delivery_rating.x")
+
+# Remove old columns
+dataset <- dataset[, !(names(dataset) %in% old_columns)]
+dataset <- clean_names(dataset)
+summary(dataset)
+```
+* We can see that **dining_rating and delivery_rating** have no **NA** values.
+
+* Checking if we have any other columns with **NA** values
+
+```{r}
+colSums(is.na(dataset))
+
+```
+* Adding a column **average_rating** for use in other visualisations
+
+```{r}
+dataset <- dataset %>%
+  mutate(average_rating = (dining_rating_y + delivery_rating_y) / 2)
+```
+
+
+
+# 4. Visualisations
+
+## a) Distribution of Dining Ratings
+
+```{r}
+# Creating histogram for distribution of dining ratings
+gg_dining <- ggplot(dataset, aes(x = dining_rating_y)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Dining Ratings", x = "Dining Ratings", y = "Frequency") +
+  theme_minimal()
+
+# Convert ggplot to Plotly
+plotly_dining <- ggplotly(gg_dining)
+
+#Displaying the plot 
+
+plotly_dining
+
+
+
+```
+
+* Most customers have given rating of **3.8** with a count of **16,526** for dining.
+
+## b) Distribution of Delivery Ratings
+```{r}
+# Create a ggplot for delivery ratings
+gg_delivery <- ggplot(dataset, aes(x = delivery_rating_y)) +
+  geom_histogram(binwidth = 0.1, fill = "green", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Delivery Ratings", x = "Delivery Ratings", y = "Frequency") +
+  theme_minimal()
+
+# Convert ggplot to Plotly
+plotly_delivery <- ggplotly(gg_delivery)
+
+# Displaying plot
+plotly_delivery
+```
+
+* Most customers have given rating of **4.1** with a count of **16,526** for delivery.
+
+## c) Distribution of food prices
+```{r}
+# Creating histogram for distribution of pricing
+gg_prices <- ggplot(dataset, aes(x = prices)) +
+  geom_histogram(binwidth = 100, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of food prices", x = "Price", y = "Frequency") +
+  theme_minimal()
+
+# Convert ggplot to Plotly
+plotly_prices <- ggplotly(gg_prices)
+
+plotly_prices
+```
+
+* Most food items are available at a price of **INR 200** followed by **INR 100**
+
+## d) Scatter plot for Prices vs Average rating
+```{r}
+# Creating scatter plot uing ggplot()
+gg_price_avg_rating <- ggplot(dataset, aes(x = average_rating, y = prices)) +
+   geom_point(aes(color = "blue"), size = 3, alpha = 0.7) +   labs(title = "Scatter Plot: Prices vs. Average Ratings",
+        x = "Average Ratings",
+        y = "Prices") +
+   theme_minimal()
+gg_price_avg_rating
+```
+
+* We can see that a **high price** doesn't necessarily correspond to a **high rating**.
+
+## e) Distribution of restaurants per city
+
+* Generating the count of restaurants per city
+```{r}
+city_restaurant_counts <- dataset %>%
+  group_by(city) %>%
+  summarize(restaurant_count = n())
+city_restaurant_counts
+```
+* Now, replacing **"Banaswadi","Magrath Road", "Malleshwaram" and "Ulsoor"** with **Bangalore** since these areas lie within **Banglalore" using `gsub()`.
+
+```{r}
+# Using gsub() to replace
+dataset$city <- gsub("Banaswadi|Magrath Road|Malleshwaram|Ulsoor", "Bangalore", dataset$city)
+
+
+unique_cities <- unique(dataset$city)
+
+# Print the unique values
+print(unique_cities)
+```
+
+* Calculating number of restaurants within each city again now that we have replaced some city names
+
+```{r}
+city_restaurant_counts <- dataset %>%
+  group_by(city) %>%
+  summarize(restaurant_count = n())
+city_restaurant_counts
+```
+
+* Plotting bar chart for distribution of restaurant per city
+
+```{r}
+# Using ggplot() to plot a bar chart
+gg_rest_city_counts <- ggplot(city_restaurant_counts, aes(x = city, y = restaurant_count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Number of restaurants in each city", x = "City", y = "Number of Restaurants") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+
+# Using plotly() to create an interactive chart
+plotly_rest_counts <- ggplotly(gg_rest_city_counts)
+
+plotly_rest_counts
+
+```
+
+* **Hyderabad** has the highest number of restaurants followed by **Jaipur** and **Mumbai**.
+
+# f) Top 10 restaurants by count
+* Generating count of restaurants then taking the top 10 by count
+```{r}
+top_restaurants <- dataset %>%
+  group_by(restaurant_name) %>%
+  summarize(count = n()) %>%
+  top_n(10, count)
+
+# Print the top 10 restaurants
+print(top_restaurants)
+```
+* Plotting bar chart for top 10 restaurants
+
+```{r}
+# Using ggplot() to plot bar chart
+ggplot(top_restaurants, aes(x = reorder(restaurant_name, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Top 10 Restaurants by Count",
+       x = "Restaurant Name",
+       y = "Total Votes") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+* **McDonald's** has the highest number of outlets followed by **Domino's** and **Burger King**
+
+## f) Top 5 locations in New Delhi by restaurant counts
+
+* Finding unique location within New Delhi
+```{r}
+delhi_locations <- unique(dataset$place_name[grepl("delhi", dataset$city, ignore.case = TRUE)])
+
+# Print the unique locations in Delhi
+# Print the unique locations in Delhi
+print(delhi_locations)
+```
+* Plotting bar chart for top 5 locations by restaurant count
+```{r}
+
+delhi_data <- subset(dataset, grepl("delhi", dataset$city, ignore.case = TRUE))
+
+# Find the top 5 locations by restaurant count
+top_locations <- delhi_data %>%
+  group_by(place_name) %>%
+  summarise(restaurant_count = n()) %>%
+  arrange(desc(restaurant_count)) %>%
+  head(5)
+
+# Print the top 5 locations
+print(top_locations)
+
+# Visualization using ggplot2
+library(ggplot2)
+
+# Bar plot for the top 5 locations
+ggplot(top_locations, aes(x = reorder(place_name, -restaurant_count), y = restaurant_count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Top 5 Locations in Delhi by Restaurant Count",
+       x = "Location",
+       y = "Restaurant Count") +
+  theme_minimal()
+```
+* **Laxmi Nagar** has the highest number of restaurants in New Delhi followed by **Connaught place**
+
+## g) Distribution of different cuisines in India
+
+* Displaying the unique cuisines in our dataset
+```{r}
+
+unique(dataset$cuisine)
+```
+* Creating broader categories for the above cuisines like - Indian, Lucknowi, Asian, Western, Fast Food, Desserts, Beverages, Healthy Food, and Other.
+
+```{r}
+
+cuisine_mapping <- list(
+  "Indian" = c("Awadhi", "Biryani", "Rajasthani", "Gujarati", "Kathiyawadi", "Maharashtrian", "Mughlai", "North Indian", "Lucknowi", "South Indian", "Hyderabadi", "Kebab", "Kerala", "Andhra"),
+  "Asian" = c("Chinese", "Sichuan", "Momos", "Thai", "Vietnamese", "Tibetan"),
+  "Western" = c("Pizza", "Pasta", "American", "Continental", "Mexican", "BBQ", "Italian"),
+  "Fast Food" = c("Fast Food", "Burger", "Sandwich", "Street Food", "Shawarma"),
+  "Desserts" = c("Desserts", "Mithai", "Bakery", "Ice Cream"),
+  "Beverages" = c("Beverages", "Coffee", "Tea", "Juices"),
+  "Healthy Food" = c("Healthy Food", "Salad"),
+  "Other" = c("Mandi", "Seafood", "Turkish")
+)
+
+# Function to map specific cuisines to broader categories
+map_to_category <- function(cuisine) {
+  for (category in names(cuisine_mapping)) {
+    if (cuisine %in% cuisine_mapping[[category]]) {
+      return(category)
+    }
+  }
+  return("Other")
+}
+
+# Apply the mapping function to create a new column 'category'
+dataset$category <- sapply(dataset$cuisine, map_to_category)
+
+# Print unique values from the resulting category column
+print(unique(dataset$category))
+
+```
+
+* Plotting graph for different cuisines.
+```{r}
+gg_cuisine <- ggplot(dataset, aes(x = category)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Cuisines",
+       x = "Cuisine",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Convert ggplot to interactive plot using plot_ly
+interactive_cuisine <- ggplotly(gg_cuisine)
+
+# Show the interactive plot
+interactive_cuisine
+
+```
+
+* As we can observe, **Beverages** have the highest count at **40,562** but for cuisines, **Western** cuisine takes the lead with a count of **17,538** followed by **Fast Food** and **Indian** at **16,346** and **13,932** respectively.
+
+## h) Descriptive statistics for numeric columns of the dataset
+```{r}
+
+summary_table <- dataset %>%
+  summarise(across(where(is.numeric), 
+                   list(
+                     Mean = ~ mean(., na.rm = TRUE),
+                     SD = ~ sd(., na.rm = TRUE),
+                     Min = ~ min(., na.rm = TRUE),
+                     Max = ~ max(., na.rm = TRUE),
+                     Total = ~ sum(!is.na(.))
+                   )))
+
+# Transpose the summary table
+summary_table_transposed <- t(summary_table)
+
+# Format the table to display numbers without scientific notation
+formatted_summary_table <- format(summary_table_transposed, scientific = FALSE)
+
+# Create a kable table
+kable(formatted_summary_table, 
+      caption = "Descriptive Statistics for dataset",
+      format = "html") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Summary
+
+1. Import Libraries and Dataset:
+
+* Utilized R with libraries such as ggplot2, tidyverse, and others.
+* Loaded dataset from "zomato_dataset.csv."
+
+2.Data Cleaning:
+
+* Standardized variable names and addressed missing values using predictive mean matching.
+* Imputed missing values in dining and delivery ratings.
+
+3.Visualizations:
+
+* Explored dining and delivery rating distributions through histograms.
+* Analyzed pricing distribution via a histogram and examined the prices vs. average ratings relationship using a scatter plot.
+
+4.Insights:
+
+* Revealed that higher prices don't necessarily correlate with higher ratings.
+* Explored restaurant distribution across cities, identifying Hyderabad as the leader.
+* Identified top 10 restaurants by count, with McDonald's leading.
+
+5.City-Specific Analysis:
+
+* Explored New Delhi, highlighting Laxmi Nagar as the area with the most restaurants.
+
+6.Cuisine Analysis:
+
+* Categorized cuisines, with Western cuisine dominating the dataset.
+
+7.Descriptive Statistics:
+
+* Computed descriptive statistics for numeric columns in the dataset.
+
+----------------------
+
+```{r}
+mumbai_dining_ratings <- subset(dataset, city %in% c("Mumbai"), select = "dining_rating_y")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
