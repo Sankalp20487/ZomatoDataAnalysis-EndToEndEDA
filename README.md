@@ -57,3 +57,14 @@ This project involves an extensive exploratory data analysis (EDA) of a dataset 
 1. **Clone the Repository:**
    ```bash
    git clone <repository-url>
+
+2. **Install Required Libraries:** Install the necessary R libraries by running the following command in your R environment:
+   
+   install.packages(c("ggplot2", "tidyverse", "janitor", "mice", "plotly", "kableExtra"))
+3. **Run the Analysis:** Open the R script in your preferred R environment (RStudio, etc.) and run it step by step to replicate the analysis.
+
+## Conclusion
+This project provided valuable insights into the restaurant landscape across Indian metropolitan areas, with a focus on ratings, pricing trends, and cuisine types. The visualizations and statistical analysis offer a clear picture of the dining preferences and trends in these regions.
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
